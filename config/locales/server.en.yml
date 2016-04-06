@@ -1,0 +1,5 @@
+# encoding: utf-8
+
+en:
+  site_settings:
+    wechat_intergration_enabled: "Enable Wechat integration."

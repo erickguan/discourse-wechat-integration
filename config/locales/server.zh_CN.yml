@@ -1,0 +1,10 @@
+# encoding: utf-8
+
+zh_CN:
+  site_settings:
+    wechat_intergration_enabled: 启用微信集成。
+    zh_l10n_wechat_client_id: "微信公众平台帐号验证的客户端帐号（Client id），到 https://open.weixin.qq.com/ 来注册获取"
+    zh_l10n_wechat_client_secret: "微信公众平台帐号验证的客户端密码（Client secret），到 https://open.weixin.qq.com/ 来注册获取"
+  dashboard:
+    zh_l10n_wechat_config_warning: '服务器允许使用微信开放平台登录（zh_l10n_enable_wechat_logins），但是 client id 和 client secret 没有被设定。 到<a href="/admin/site_settings">站点设置</a>更新此设定。<a href="https://meta.discoursecn.org/t/%E9%85%8D%E7%BD%AE%E7%94%A8%E5%BE%AE%E4%BF%A1%E8%B4%A6%E5%8F%B7%EF%BC%88%E5%BE%AE%E4%BF%A1%E5%BC%80%E6%94%BE%E5%B9%B3%E5%8F%B0%EF%BC%89%E7%99%BB%E5%BD%95-Discourse/1025" target="_blank">参考设定指南</a>。'
+

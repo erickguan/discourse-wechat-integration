@@ -1,0 +1,8 @@
+plugins:
+  wechat_intergration_enabled:
+    default: true
+    client: true
+  wechat_intergration_client_id:
+    default: ''
+  wechat_intergration_client_secret:
+    default: ''
