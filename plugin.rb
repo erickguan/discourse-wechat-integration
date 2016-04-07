@@ -15,14 +15,8 @@ auth_provider authenticator: WechatAuthenticator.new,
               frame_width: 850,
               frame_height: 600,
               background_color: 'rgb(146, 230, 73)',
+              glpyh: '\f1d7',
               enabled_setting: SITE_SETTING_NAME
-
-register_css <<EOF
- .btn-social.wechat:before {
-  font-family: FontAwesome;
-  content: "\\f1d7";
-}
-EOF
 
 after_initialize do
   AdminDashboardData.class_eval do

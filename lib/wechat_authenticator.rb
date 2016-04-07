@@ -11,28 +11,40 @@ class WechatAuthenticator < ::Auth::Authenticator
     data = auth_token[:info]
     raw_info = auth_token[:extra][:raw_info]
     name = data[:nickname] || ''
-    wechat_uid = auth_token[:uid]
+    wechat_uid = raw_info[:unionid]
 
-    current_info = ::PluginStore.get(AUTHENTICATOR_NAME, "wechat_uid_#{wechat_uid}")
+    return result unless wechat_uid
 
-    if current_info
-      result.user = User.where(id: current_info[:user_id]).first
+    ::PluginStore.set(AUTHENTICATOR_NAME, "wechat_union_id_#{wechat_uid}", raw_info)
+
+    current_info = UserCustomField.where(wechat_union_id: wechat_uid)
+
+    if current_info[:user_id]
+      user = User.where(id: current_info[:user_id]).first
     else
-      current_info = Hash.new
+      user = User.new({username: 'COMPOSITE_USERNAME', email: "COMPOSITE_USERNAME"})
     end
-    current_info.store(:raw_info, raw_info)
-    ::PluginStore.set(AUTHENTICATOR_NAME, "wechat_uid_#{wechat_uid}", current_info)
+    user.custom_fields = { wechat_union_id: wechat_uid }
+    user.active = true
+    user.approved = true
+    user.approved_at = Time.now
+    user.activate
+    user.save!
+    user.reload
 
-    result.username = name.downcase
-    result.extra_data = { wechat_uid: wechat_uid }
+    UserOption.where(user_id: user.id).update_all(
+      email_direct: false,
+      email_digests: false,
+      email_private_messages: false
+    )
 
+    return result unless user
+
+    result.user = user
     result
   end
 
   def after_create_account(user, auth)
-    wechat_uid = auth[:extra_data][:wechat_uid]
-    current_info = ::PluginStore.get(AUTHENTICATOR_NAME, "wechat_uid_#{wechat_uid}") || {}
-    ::PluginStore.set(AUTHENTICATOR_NAME, "wechat_uid_#{wechat_uid}", current_info.merge(user_id: user.id))
   end
 
   def register_middleware(omniauth)
