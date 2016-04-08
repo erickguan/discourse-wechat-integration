@@ -16,6 +16,31 @@ wechat:
   :extra:
     :raw_info:
       :openid: openid
+      :unionid: unionid
+      :nickname: Nickname
+      :sex: 1
+      :province: Changning
+      :city: Shanghai
+      :country: China
+      :headimgurl: http://image_url
+wechat_no_unionid:
+  :provider: wechat
+  :uid: '123456789'
+  :info:
+    :nickname: Nickname
+    :sex: 1
+    :province: Changning
+    :city: Shanghai
+    :country: China
+    :headimgurl: http://image_url
+  :credentials:
+    :token: token
+    :refresh_token: another_token
+    :expires_at: 7200
+    :expires: true
+  :extra:
+    :raw_info:
+      :openid: openid
       :nickname: Nickname
       :sex: 1
       :province: Changning
