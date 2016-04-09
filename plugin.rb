@@ -20,6 +20,8 @@ auth_provider authenticator: WechatAuthenticator.new,
               enabled_setting: SITE_SETTING_NAME
 
 after_initialize do
+  load File.expand_path("../app/jobs/pull_wechat_avatar.rb", __FILE__)
+
   module ::DiscourseWechatIntegration
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -75,6 +77,45 @@ after_initialize do
   add_to_class(:user, :wechat_unionid) { custom_fields[USER_WECHAT_FILED_NAME] }
   add_to_serializer(:user, :include_wechat_info?, false) { scope.is_staff? && object.wechat_unionid }
   add_to_serializer(:user, :wechat_info, false) { object.wechat_unionid && PluginStore.get('wechat', "wechat_unionid_#{object.wechat_unionid}") }
+
+  add_to_class(:user, :pull_wechat_avatar) do
+    avatar = user_avatar || create_user_avatar
+
+    Jobs.enqueue(:pull_wechat_avatar, user_id: self.id, avatar_id: avatar.id)
+
+    # mark all the user's quoted posts as "needing a rebake"
+    Post.rebake_all_quoted_posts(self.id) if self.uploaded_avatar_id_changed?
+  end
+  add_to_class(:user_avatar, :update_wechat_avatar!) do
+    DistributedMutex.synchronize("pull_wechat_avatar_#{user_id}") do
+      begin
+        union_id = user.custom_fields['wechat_unionid']
+        return unless union_id
+        plugin_row = PluginStore.get('wechat', "wechat_unionid_#{union_id}")
+        return unless plugin_row
+        image_url = plugin_row['raw_info']['headimgurl']
+
+        uri = URI.parse(image_url)
+        return if uri && uri.scheme.nil?
+
+        tempfile = FileHelper.download(image_url, SiteSetting.max_image_size_kb.kilobytes, "wechat_avatar")
+        upload = Upload.create_for(user_id, tempfile, 'wechat_avatar.jpg', File.size(tempfile.path), origin: image_url, image_type: "avatar")
+
+        if custom_upload_id != upload.id
+          custom_upload_id.try(:destroy!) rescue nil
+          self.custom_upload = upload
+          save!
+        end
+      rescue OpenURI::HTTPError
+        save!
+      rescue SocketError
+        # skip saving, we are not connected to the net
+        Rails.logger.warn "Failed to download wechat avatar, socket error - user id #{user_id}"
+      ensure
+        tempfile.try(:close!)
+      end
+    end
+  end
 
   AdminDashboardData.class_eval do
     def wechat_config_check

@@ -46,6 +46,7 @@ class WechatAuthenticator < ::Auth::Authenticator
       end
 
       user.activate
+      user.pull_wechat_avatar
       Jobs.enqueue(:send_system_message, user_id: user.id, message_type: 'wechat_login_notification')
     end
 
@@ -121,19 +122,19 @@ module WechatNameSuggester
 
 end
 
-# gem 'omniauth-wechat-oauth2' 1.0; https://github.com/skinnyworm/omniauth-wechat-oauth2
+# modified from gem 'omniauth-wechat-oauth2' 1.0; https://github.com/skinnyworm/omniauth-wechat-oauth2
 
 class OmniAuth::Strategies::Wechat < OmniAuth::Strategies::OAuth2
   option :name, "wechat"
 
   option :client_options, {
     site:          "https://api.weixin.qq.com",
-    authorize_url: "https://open.weixin.qq.com/connect/oauth2/authorize#wechat_redirect",
+    authorize_url: "https://open.weixin.qq.com/connect/qrconnect#wechat_redirect",
     token_url:     "/sns/oauth2/access_token",
     token_method:  :get
   }
 
-  option :authorize_params, {scope: "snsapi_userinfo"}
+  option :authorize_params, {scope: "snsapi_login"}
 
   option :token_params, {parse: :json}
 
@@ -166,14 +167,11 @@ class OmniAuth::Strategies::Wechat < OmniAuth::Strategies::OAuth2
     @uid ||= access_token["openid"]
     @raw_info ||= begin
       access_token.options[:mode] = :query
-      if access_token["scope"] == "snsapi_userinfo"
-        response = access_token.get("/sns/userinfo", :params => {"openid" => @uid}, parse: :text)
-        @raw_info = JSON.parse(response.body.gsub(/[\u0000-\u001f]+/, ''))
-      else
-        @raw_info = {"openid" => @uid }
-        @raw_info.merge!("unionid" => access_token["unionid"]) if access_token["unionid"]
-        @raw_info
-      end
+      response = access_token.get("/sns/userinfo", :params => {"openid" => @uid}, parse: :text)
+      @raw_info = JSON.parse(response.body.gsub(/[\u0000-\u001f]+/, '')) || {}
+      @raw_info.merge!({"openid" => @uid })
+      @raw_info.merge!("unionid" => access_token["unionid"]) if access_token["unionid"]
+      @raw_info
     end
   end
 

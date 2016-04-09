@@ -116,6 +116,8 @@ Discourse wechat integration.
     }
 
 
+目前无法把已经建立的账号和微信绑定起来，后期可能考虑提供 API 直接加入 UnionId 的绑定，减少不必要的 OAuth 流程。
+
 ## 安装
 
 在 `app.yml` 的

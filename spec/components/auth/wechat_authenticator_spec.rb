@@ -64,12 +64,13 @@ describe WechatAuthenticator do
         expect(result.user.email_tokens.empty?).to eq(true)
       end
 
-      it 'sends out a message for asking update emails to user' do
-
+      it 'enqueue pull avatar job to new user & sends out a message for asking update emails to new user' do
         authenticator = described_class.new
-        result = authenticator.after_authenticate(hash)
 
-        Jobs.enqueue(:send_system_message, user_id: result.user.id, message_type: 'wechat_login_notification')
+        Jobs.expects(:enqueue).with(:pull_wechat_avatar, anything)
+        Jobs.expects(:enqueue).with(:send_system_message, anything)
+
+        authenticator.after_authenticate(hash)
       end
 
       it 'creates random username & random fake emails' do
