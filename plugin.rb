@@ -15,7 +15,7 @@ auth_provider authenticator: WechatAuthenticator.new,
               frame_width: 850,
               frame_height: 600,
               background_color: 'rgb(146, 230, 73)',
-              glpyh: '\f1d7',
+              glyph: '\f1d7',
               full_screen_login: true,
               enabled_setting: SITE_SETTING_NAME
 

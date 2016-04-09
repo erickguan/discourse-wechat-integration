@@ -87,6 +87,17 @@ describe WechatAuthenticator do
 
         expect(result.user.email.include?('@')).not_to eq(true)
       end
+
+      it 'turn off email notifications for created user without legitimate email address' do
+        authenticator = described_class.new
+        result = authenticator.after_authenticate(hash)
+
+        option = UserOption.where(user_id: result.user.id).first
+
+        expect(option.email_direct).to eq(false)
+        expect(option.email_digests).to eq(false)
+        expect(option.email_private_messages).to eq(false)
+      end
     end
 
     context 'without unionid returned' do
@@ -102,20 +113,8 @@ describe WechatAuthenticator do
   end
 
   describe '.after_create_account' do
-    after { User.where(email: 'no_email_wechat').delete_all }
-
-    it 'turn off email notifications if user doesnt have email address' do
-      user = Fabricate(:user, email: 'no_email_wechat')
-
-      authenticator = described_class.new
-      authenticator.after_create_account(user, nil)
-
-      option = UserOption.where(user_id: user.id).first
-
-      expect(option.email_direct).to eq(false)
-      expect(option.email_digests).to eq(false)
-      expect(option.email_private_messages).to eq(false)
-    end
+    # no implementation
+    # after { User.where(email: 'no_email_wechat').delete_all }
 
     # it 'dont touch email settings when user has email address' do
     #   user = Fabricate(:user, email: 'email_wechat@test_wechat.test')

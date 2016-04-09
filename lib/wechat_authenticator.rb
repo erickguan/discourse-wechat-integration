@@ -31,11 +31,20 @@ class WechatAuthenticator < ::Auth::Authenticator
     if current_info
       user = User.where(id: current_info.user_id).first
     else
-      user = User.new({username: WechatNameSuggester.suggest_username(name),
-                       email: WechatNameSuggester.suggest_email(name)})
+      user = User.new(username: WechatNameSuggester.suggest_username(name),
+                      email: WechatNameSuggester.suggest_email(name))
       user.custom_fields = { wechat_unionid: wechat_uid }
       user.save!
       user.email_tokens.delete_all
+
+      unless user.email.include?('@')
+        user.user_option.update(
+          email_direct: false,
+          email_digests: false,
+          email_private_messages: false
+        )
+      end
+
       user.activate
       Jobs.enqueue(:send_system_message, user_id: user.id, message_type: 'wechat_login_notification')
     end
@@ -47,13 +56,6 @@ class WechatAuthenticator < ::Auth::Authenticator
   end
 
   def after_create_account(user, auth)
-    unless user.email.include?('@')
-      UserOption.where(user_id: user.id).update_all(
-        email_direct: false,
-        email_digests: false,
-        email_private_messages: false
-      )
-    end
   end
 
   def register_middleware(omniauth)
