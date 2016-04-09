@@ -7,4 +7,16 @@ zh_CN:
     zh_l10n_wechat_client_secret: "微信公众平台帐号验证的客户端密码（Client secret），到 https://open.weixin.qq.com/ 来注册获取"
   dashboard:
     zh_l10n_wechat_config_warning: '服务器允许使用微信开放平台登录（zh_l10n_enable_wechat_logins），但是 client id 和 client secret 没有被设定。 到<a href="/admin/site_settings">站点设置</a>更新此设定。<a href="https://meta.discoursecn.org/t/%E9%85%8D%E7%BD%AE%E7%94%A8%E5%BE%AE%E4%BF%A1%E8%B4%A6%E5%8F%B7%EF%BC%88%E5%BE%AE%E4%BF%A1%E5%BC%80%E6%94%BE%E5%B9%B3%E5%8F%B0%EF%BC%89%E7%99%BB%E5%BD%95-Discourse/1025" target="_blank">参考设定指南</a>。'
+  system_messages:
+    wechat_login_notification:
+      subject_template: "欢迎使用微信登录"
+      text_body_template: |
+        你好，欢迎加入%{site_name}。
 
+        你使用了微信登录，因为论坛的技术限制，我们随机生成了你的用户名和邮箱。
+
+        为了方便你在网页上登录你的账号，我们建议你在[用户设置](%{user_preferences_url})中设置你的邮箱和用户名。
+
+        这一步骤很重要，否则你将不得不使用微信登录，甚至你可能会丢掉你的账号。
+
+        想了解更多，请查看我们的[社群指引](%{base_url}/guidelines)。

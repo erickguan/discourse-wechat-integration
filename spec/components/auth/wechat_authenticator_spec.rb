@@ -6,17 +6,18 @@ RSpec.configure do |c|
 end
 
 describe WechatAuthenticator do
-  let(:hash) { load_auth_hash('wechat') }
-  let(:hash_without_unionid) { load_auth_hash('wechat_no_unionid') }
-  before { User.where(email: 'no_email_wechat').delete_all }
+  describe '.after_authenticate' do
+    context 'with unionid returned' do
+      let(:hash) { load_auth_hash('wechat') }
+      after do
+        User.where(email: 'no_email_wechat').delete_all
+        UserCustomField.where(name: 'wechat_unionid').delete_all
+      end
 
-  context '.after_authenticate' do
-    context 'with existing wechat login record' do
-      before { UserCustomField.create(user_id: user.id, name: 'wechat_unionid', value: 'unionid') }
-      after { UserCustomField.where(name: 'wechat_unionid').delete_all }
-      let(:user) { Fabricate(:user, email: 'no_email_wechat') }
+      it 'can authenticate existing user' do
+        user = Fabricate(:user, email: 'no_email_wechat')
+        UserCustomField.create(user_id: user.id, name: 'wechat_unionid', value: 'unionid')
 
-      it 'can authenticate existing user given wechat unionid' do
         authenticator = described_class.new
 
         result = authenticator.after_authenticate(hash)
@@ -24,7 +25,16 @@ describe WechatAuthenticator do
         expect(result.user.id).to eq(user.id)
       end
 
-      it 'can store additional information' do
+      it 'can create a user if non-existing' do
+        authenticator = described_class.new
+
+        result = authenticator.after_authenticate(hash)
+
+        expect(result.user.id).to be_a(Fixnum)
+        expect(result.user.custom_fields['wechat_unionid']).to eq('unionid')
+      end
+
+      it 'stores additional information' do
         authenticator = described_class.new
 
         authenticator.after_authenticate(hash)
@@ -33,76 +43,87 @@ describe WechatAuthenticator do
         expect(PluginStore.get('wechat', 'wechat_unionid_unionid')[:raw_info][:city]).to eq('Shanghai')
       end
 
-      it 'can store token credentials' do
+      it 'stores token credentials' do
         authenticator = described_class.new
 
         authenticator.after_authenticate(hash)
 
-        expect(PluginStore.get('wechat', 'wechat_unionid_unionid')[:access_token]).to eq('token')
-        expect(PluginStore.get('wechat', 'wechat_unionid_unionid')[:refresh_token]).to eq('another_token')
-        expect(PluginStore.get('wechat', 'wechat_unionid_unionid')[:expires]).to eq('true')
-        expect(PluginStore.get('wechat', 'wechat_unionid_unionid')[:expired_till]).to be_a(String)
-        expect(PluginStore.get('wechat', 'wechat_unionid_unionid')[:raw_info][:city]).to eq('Shanghai')
+        row = PluginStore.get('wechat', 'wechat_unionid_unionid')
+
+        expect(row[:access_token]).to eq('token')
+        expect(row[:refresh_token]).to eq('another_token')
+        expect(row[:expires_at]).to be_a(String)
+        expect(row[:raw_info][:city]).to eq('Shanghai')
+      end
+
+      it 'creates and activates new user' do
+        authenticator = described_class.new
+        result = authenticator.after_authenticate(hash)
+
+        expect(result.user).not_to eq(nil)
+        expect(result.user.email_tokens.empty?).to eq(true)
+      end
+
+      it 'sends out a message for asking update emails to user' do
+
+        authenticator = described_class.new
+        result = authenticator.after_authenticate(hash)
+
+        Jobs.enqueue(:send_system_message, user_id: result.user.id, message_type: 'wechat_login_notification')
+      end
+
+      it 'creates random username & random fake emails' do
+        result_1 = described_class.new.after_authenticate(hash)
+        result_2 = described_class.new.after_authenticate(load_auth_hash('wechat_2'))
+
+        expect(result_1.user).not_to eq(nil)
+        expect(result_2.user).not_to eq(nil)
+        expect(result_1.user.id).not_to eq(result_2.user.id)
+      end
+
+      it 'generates a non-email for new user' do
+        authenticator = described_class.new
+        result = authenticator.after_authenticate(hash)
+
+        expect(result.user.email.include?('@')).not_to eq(true)
       end
     end
 
-    it 'can create an unconfirmed user for non existing users with unionid' do
-      authenticator = described_class.new
-      result = authenticator.after_authenticate(hash)
+    context 'without unionid returned' do
+      let(:hash) { load_auth_hash('wechat_no_unionid') }
 
-      expect(result.failed?).to eq(true)
-      expect(result.user.active).to eq(false)
-    end
+      it 'doesnt create or link any users' do
+        authenticator = described_class.new
+        result = authenticator.after_authenticate(hash)
 
-    it 'generates a non-email for non existing users with unionid' do
-      authenticator = described_class.new
-      result = authenticator.after_authenticate(hash)
-
-      expect(result.user.email.include?('@')).not_to eq(true)
-    end
-
-    it 'doesnt create an user for non existing users without unionid' do
-      authenticator = described_class.new
-      result = authenticator.after_authenticate(hash_without_unionid)
-
-      expect(result.user).to eq(nil)
-      expect(result).to eq(nil)
+        expect(result.user).to eq(nil)
+      end
     end
   end
 
-  context '.after_create_account' do
-    before { User.where(email: 'no_email_wechat').delete_all }
-    let(:user) { Fabricate(:user, email: 'no_email_wechat') }
-    context 'with existing unionid record' do
-      before { UserCustomField.create(user_id: user.id, name: 'wechat_unionid', value: 'unionid') }
-      after { UserCustomField.where(name: 'wechat_unionid').delete_all }
+  describe '.after_create_account' do
+    after { User.where(email: 'no_email_wechat').delete_all }
 
-      it 'confirms account with associated unionid' do
-        authenticator = described_class.new
-        authenticator.after_create_account(user, nil)
+    it 'turn off email notifications if user doesnt have email address' do
+      user = Fabricate(:user, email: 'no_email_wechat')
 
-        expect(user.active).to eq(true)
-      end
+      authenticator = described_class.new
+      authenticator.after_create_account(user, nil)
 
-      it 'turn off email notification if user doesnt have email address' do
-        option = UserOption.where(user_id: user.id).first
+      option = UserOption.where(user_id: user.id).first
 
-        expect(option.email_direct).to eq(false)
-        expect(option.email_digests).to eq(false)
-        expect(option.email_private_messages).to eq(false)
-      end
+      expect(option.email_direct).to eq(false)
+      expect(option.email_digests).to eq(false)
+      expect(option.email_private_messages).to eq(false)
     end
 
-    context 'without existing plugin record' do
-      before { UserCustomField.where(name: 'wechat_unionid').delete_all }
-
-      it 'doesnt confirm account without associated unionid' do
-        authenticator = described_class.new
-
-        authenticator.after_create_account(user, nil)
-
-        expect(user.active).to eq(false)
-      end
-    end
+    # it 'dont touch email settings when user has email address' do
+    #   user = Fabricate(:user, email: 'email_wechat@test_wechat.test')
+    #   option = UserOption.where(user_id: user.id).first
+    #
+    #   expect(option.email_direct).to eq(true)
+    #   expect(option.email_digests).to eq(true)
+    #   expect(option.email_private_messages).to eq(true)
+    # end
   end
 end
